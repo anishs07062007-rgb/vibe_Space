@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vibe Space</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=DM+Sans:wght@400;500&display=swap">
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#E3E7E2;--ink:#1F2623;--acc:#3E7C6B;--card:#F4F6F3;--on:#fff}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+:root[data-mood=sad]{--bg:#1F2A44;--ink:#E8ECF8;--acc:#8FB3FF;--card:#2B3A5C;--on:#10182B}
+:root[data-mood=happy]{--bg:#FFD54A;--ink:#2A1B3D;--acc:#E8343B;--card:#FFF1B8;--on:#fff}
+*,*:before,*:after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 17px/1.6 "DM Sans",system-ui,sans-serif;transition:background .5s,color .5s;min-height:100vh}
+h1,h2,h3{font-family:"Bricolage Grotesque","DM Sans",system-ui,sans-serif;line-height:1.1;margin:0}
+header{display:flex;justify-content:space-between;align-items:center;padding:20px 24px;max-width:960px;margin:auto}
+.logo{font:700 22px "Bricolage Grotesque",system-ui,sans-serif}
+.dots{display:flex;gap:6px}.dots i{width:28px;height:6px;border-radius:3px;background:var(--ink);opacity:.2}.dots i.on{opacity:1;background:var(--acc)}
+main{max-width:960px;margin:auto;padding:12px 24px 64px}
+h1{font-size:clamp(40px,8vw,84px);font-weight:700;letter-spacing:-.02em;margin-bottom:12px}
+h2{font-size:clamp(30px,5vw,48px);font-weight:700;margin-bottom:8px}
+.sub{max-width:52ch;opacity:.85;margin:0 0 28px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+.opt{font:inherit;color:inherit;text-align:left;background:var(--card);border:2px solid transparent;border-radius:20px;padding:22px;cursor:pointer;transition:transform .15s,border-color .15s}
+.opt:hover{transform:translateY(-3px)}.opt.sel{border-color:var(--acc)}
+.opt b{display:block;font:700 26px "Bricolage Grotesque",system-ui,sans-serif}.opt span{opacity:.8;font-size:15px}
+.mood{padding:36px 22px}.mood b{font-size:34px}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid var(--acc);outline-offset:3px}
+.row{display:flex;gap:14px;flex-wrap:wrap;align-items:end;margin-top:20px}
+label{display:flex;flex-direction:column;gap:6px;font-weight:500;font-size:15px}
+input,select{font:inherit;color:inherit;background:var(--card);border:2px solid var(--ink);border-color:color-mix(in srgb,var(--ink) 25%,transparent);border-radius:12px;padding:12px 14px;min-width:150px}
+.nav{display:flex;gap:12px;margin-top:32px;align-items:center;flex-wrap:wrap}
+.btn{font:500 17px "DM Sans",system-ui,sans-serif;border:0;border-radius:999px;padding:14px 28px;cursor:pointer;background:var(--acc);color:var(--on)}
+.btn.ghost{background:transparent;color:var(--ink);border:2px solid color-mix(in srgb,var(--ink) 30%,transparent)}
+.err{color:var(--ink);background:var(--card);border-left:4px solid var(--acc);padding:8px 12px;margin-top:16px;border-radius:0}
+.venue{background:var(--card);border-radius:20px;padding:22px;margin-bottom:14px}
+.venue h3{font-size:26px}.meta{opacity:.8;font-size:15px;margin:4px 0 12px}
+.tag{display:inline-block;background:var(--acc);color:var(--on);border-radius:999px;padding:2px 12px;font-size:14px;margin-right:6px}
+.dish{display:flex;justify-content:space-between;border-top:1px solid color-mix(in srgb,var(--ink) 20%,transparent);padding:8px 0}
+.acts{display:flex;gap:10px;flex-wrap:wrap}.acts .btn{padding:10px 20px;font-size:15px;text-decoration:none;display:inline-block}
+.form{display:grid;gap:14px;max-width:420px}.form input,.form select{width:100%}
+.note{font-size:14px;opacity:.75;margin-top:24px}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header><div class="logo">Vibe Space</div><div class="dots" id="dots" aria-hidden="true"></div><button class="btn ghost" id="out" style="display:none;padding:8px 16px;font-size:14px" onclick="logout()">Log out</button></header>
+<main id="app"></main>
+<script>
+var S={user:null,f:{name:"",gender:"",email:"",phone:""},step:0,mood:"",who:"",n:1,type:"",pp:300,loc:null,area:"",places:[],loading:false,open:-1,err:"",msg:""};
+var T=["Mood","Company","Outing","Budget","Results"];
+var CALM=["cafe","tea","park","garden","nature_reserve","viewpoint","beach","peak"];
+var DISH={
+ south_indian:[["Idli plate",40],["Masala dosa",80],["Filter coffee",30]],
+ indian:[["Veg thali",220],["Paneer curry",250],["Naan",40]],
+ chinese:[["Veg noodles",150],["Fried rice",160],["Momos",120]],
+ pizza:[["Margherita pizza",250],["Garlic bread",120],["Soft drink",60]],
+ burger:[["Burger",150],["Fries",90],["Cold drink",60]],
+ tea:[["Masala chai",20],["Biscuits",15],["Samosa",30]],
+ coffee_shop:[["Cappuccino",150],["Sandwich",150],["Brownie",130]],
+ restaurant:[["Veg meal",200],["Biryani",280],["Soft drink",60]],
+ cafe:[["Coffee",120],["Sandwich",150],["Brownie",130]],
+ adventure:[["Fresh lime",40],["Snacks",50],["Water bottle",20]]};
+try{S.user=JSON.parse(localStorage.getItem("vibeUser"))}catch(e){}
+var app=document.getElementById("app");
+function esc(t){return String(t).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function est(p){var k=p.kind,c=p.cuisine;
+ if(k==="tea"||/tea/.test(c))return 60;if(k==="cafe")return 150;if(k==="fast_food")return 120;if(k==="food_court")return 150;if(k==="restaurant")return 350;
+ if(["park","garden","nature_reserve","viewpoint","beach","peak"].indexOf(k)>-1)return 0;
+ if(k==="attraction")return 100;if(k==="sports_centre"||k==="miniature_golf")return 300;return 400}
+function mood(p){return CALM.indexOf(p.kind)>-1||/tea/.test(p.cuisine)?"calm":"lively"}
+function dishes(p){var c=(p.cuisine||"").split(";")[0];return DISH[c]||(S.type==="adventure"?DISH.adventure:S.type==="cafe"?DISH.cafe:DISH.restaurant)}
+function dist(a,b,c,d){var R=6371,r=Math.PI/180,x=(c-a)*r,y=(d-b)*r,h=Math.sin(x/2)*Math.sin(x/2)+Math.cos(a*r)*Math.cos(c*r)*Math.sin(y/2)*Math.sin(y/2);return 2*R*Math.asin(Math.sqrt(h))}
+function opt(k,v,t,d,sel,cls){return '<button class="opt '+(cls||"")+(sel?" sel":"")+'" aria-pressed="'+!!sel+'" onclick="pick(\''+k+'\',\''+v+'\')"><b>'+t+'</b><span>'+d+'</span></button>'}
+function pick(k,v){S[k]=v;S.err="";if(k==="who"&&v==="alone")S.n=1;if(k==="who"&&v!=="alone"&&S.n<2)S.n=2;if(k==="mood")document.documentElement.setAttribute("data-mood",v);render()}
+function go(d){
+ if(d>0){var e="";
+  if(S.step===0&&!S.mood)e="Pick a mood to continue.";
+  if(S.step===1&&!S.who)e="Choose who is with you.";
+  if(S.step===1&&S.who!=="alone"&&(S.n<2||S.n>50))e="Enter a group size between 2 and 50.";
+  if(S.step===2&&!S.type)e="Choose an outing type.";
+  if(S.step===3&&!(S.pp>=0))e="Enter a budget of 0 or more.";
+  if(S.step===3&&!e&&!S.loc)e="Set your location first.";
+  if(e){S.err=e;render();return}}
+ S.step=Math.max(0,Math.min(4,S.step+d));S.err="";S.open=-1;
+ if(S.step===4)load();else render();
+ window.scrollTo(0,0)}
+function setN(v){S.n=Math.max(1,Math.min(50,parseInt(v)||1));render(true)}
+function setPP(v){S.pp=Math.max(0,parseInt(v)||0);render(true)}
+function setTot(v){var t=parseInt(v)||0;S.pp=Math.floor(t/S.n);render(true)}
+function tog(i){S.open=S.open===i?-1:i;render()}
+function restart(){S={user:S.user,f:S.f,step:0,mood:"",who:"",n:1,type:"",pp:300,loc:S.loc,area:"",places:[],loading:false,open:-1,err:"",msg:""};document.documentElement.removeAttribute("data-mood");render()}
+function useGeo(){
+ if(!navigator.geolocation){S.err="This browser cannot share location. Type an area instead.";render();return}
+ S.msg="Finding your location...";S.err="";render();
+ navigator.geolocation.getCurrentPosition(function(p){S.loc={lat:p.coords.latitude,lon:p.coords.longitude,label:"your current location"};S.msg="";render()},
+ function(){S.msg="";S.err="Location was blocked. Type your area below instead.";render()},{timeout:10000})}
+async function findArea(){
+ var q=(S.area||"").trim();if(!q){S.err="Type an area or city first.";render();return}
+ S.msg="Searching...";S.err="";render();
+ try{var r=await fetch("/api/geocode?q="+encodeURIComponent(q));var j=await r.json();if(!r.ok)throw new Error(j.error);
+  S.loc={lat:j.lat,lon:j.lon,label:j.name.split(",").slice(0,2).join(",")}}
+ catch(e){S.err=e.message||"Could not find that area."}
+ S.msg="";render()}
+async function load(){
+ S.loading=true;S.places=[];S.err="";render();
+ try{var r=await fetch("/api/places?lat="+S.loc.lat+"&lon="+S.loc.lon+"&type="+S.type+"&radius=3000");var j=await r.json();
+  if(!r.ok)throw new Error(j.error||"Request failed");S.places=j.places}
+ catch(e){S.err=e instanceof TypeError?"Cannot reach the server. Run node server.js and open http://localhost:3000.":(e.message||"Could not load places.")}
+ S.loading=false;render()}
+function renderLogin(){
+ document.getElementById("dots").innerHTML="";var f=S.f;
+ app.innerHTML='<h1>Welcome to Vibe Space</h1><p class="sub">Sign in to get places that match your mood. New here? Fill in the same form to create your account.</p><div class="form">'+
+ '<label>Name<input type="text" autocomplete="name" value="'+esc(f.name)+'" oninput="S.f.name=this.value"></label>'+
+ '<label>Gender<select onchange="S.f.gender=this.value">'+["","Female","Male","Non-binary","Prefer not to say"].map(function(g){return '<option value="'+g+'"'+(g===f.gender?" selected":"")+'>'+(g||"Select")+'</option>'}).join("")+'</select></label>'+
+ '<label>Email id<input type="email" autocomplete="email" value="'+esc(f.email)+'" oninput="S.f.email=this.value"></label>'+
+ '<label>Phone number<input type="tel" autocomplete="tel" value="'+esc(f.phone)+'" oninput="S.f.phone=this.value"></label></div>'+
+ (S.err?'<div class="err" role="alert">'+esc(S.err)+'</div>':"")+
+ '<div class="nav"><button class="btn" onclick="login()">'+(S.msg?esc(S.msg):"Continue")+'</button></div><p class="note">Your details are saved on this project server only.</p>'}
+async function login(){
+ var f=S.f,e="";
+ if((f.name||"").trim().length<2)e="Enter your name.";
+ else if(!f.gender)e="Choose a gender option.";
+ else if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test((f.email||"").trim()))e="Enter a valid email id.";
+ else if(!/^\+?\d{10,13}$/.test((f.phone||"").replace(/[\s-]/g,"")))e="Enter a valid phone number (10 digits).";
+ if(e){S.err=e;render();return}
+ S.msg="Signing in...";S.err="";render();
+ try{var r=await fetch("/api/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(f)});var j=await r.json();
+  if(!r.ok)throw new Error(j.error||"Could not sign in.");
+  S.user=j.user;try{localStorage.setItem("vibeUser",JSON.stringify(j.user))}catch(x){}}
+ catch(x){S.err=x instanceof TypeError?"Cannot reach the server. Run node server.js and open http://localhost:3000.":(x.message||"Could not sign in.")}
+ S.msg="";render()}
+function logout(){try{localStorage.removeItem("vibeUser")}catch(x){}S.user=null;S.step=0;S.mood="";S.err="";document.documentElement.removeAttribute("data-mood");render()}
+function render(keep){
+ var h="",el=document.activeElement,id=keep&&el?el.id:"",pos=el&&el.selectionStart;
+ document.getElementById("out").style.display=S.user?"":"none";
+ if(!S.user){renderLogin();return}
+ document.getElementById("dots").innerHTML=T.map(function(t,i){return '<i class="'+(i<=S.step?"on":"")+'" title="'+t+'"></i>'}).join("");
+ if(S.step===0){h='<h1>Hi '+esc(S.user.name.split(" ")[0])+', how are you feeling?</h1><p class="sub">Your mood sets the colors of this page and the kind of place we suggest.</p><div class="grid">'+
+  opt("mood","sad","Sad","Quiet, gentle places",S.mood==="sad","mood")+opt("mood","happy","Happy","Lively, fun places",S.mood==="happy","mood")+opt("mood","none","No feelings","Just show me options",S.mood==="none","mood")+'</div>'}
+ if(S.step===1){h='<h2>Who is coming along?</h2><p class="sub">We tune the suggestions to your group.</p><div class="grid">'+
+  opt("who","alone","Alone","Just me",S.who==="alone")+opt("who","friends","Friends","A group of friends",S.who==="friends")+opt("who","family","Family","Together with family",S.who==="family")+'</div>';
+  if(S.who&&S.who!=="alone")h+='<div class="row"><label>Number of members<input id="n" type="number" min="2" max="50" value="'+S.n+'" oninput="setN(this.value)"></label></div>'}
+ if(S.step===2){h='<h2>Where to?</h2><p class="sub">Pick one kind of outing.</p><div class="grid">'+
+  opt("type","restaurant","Restaurant","Sit-down meals",S.type==="restaurant")+opt("type","cafe","Cafe","Coffee, tea, snacks",S.type==="cafe")+opt("type","adventure","Adventure","Parks, walks, activities",S.type==="adventure")+'</div>'}
+ if(S.step===3){h='<h2>Budget and location</h2><p class="sub">Set what each person can spend. The total follows your group size ('+S.n+(S.n>1?" people":" person")+').</p><div class="row">'+
+  '<label>Per person (INR)<input id="pp" type="number" min="0" value="'+S.pp+'" oninput="setPP(this.value)"></label>'+
+  '<label>Total (INR)<input id="tot" type="number" min="0" value="'+S.pp*S.n+'" oninput="setTot(this.value)"></label></div>'+
+  '<div class="row"><button class="btn" onclick="useGeo()">Use my location</button><label>Or type an area<input id="area" type="text" placeholder="Anna Nagar, Chennai" value="'+esc(S.area)+'" oninput="S.area=this.value"></label><button class="btn ghost" onclick="findArea()">Search area</button></div>'+
+  '<p class="note">'+(S.msg?esc(S.msg):S.loc?"Location set: "+esc(S.loc.label):"No location set yet.")+'</p>'}
+ if(S.step===4){
+  h='<h2>Your '+S.type+' picks</h2><p class="sub">'+S.n+(S.n>1?" people":" person")+', up to INR '+S.pp+' each (INR '+S.pp*S.n+' total), near '+esc(S.loc.label)+'.</p>';
+  if(S.loading)h+='<div class="venue">Finding real places near you...</div>';
+  else if(!S.err){
+   var want=S.mood==="sad"?"calm":S.mood==="happy"?"lively":"";
+   var list=S.places.map(function(p){return Object.assign({},p,{e:est(p),d:dist(S.loc.lat,S.loc.lon,p.lat,p.lon),m:mood(p)})})
+    .filter(function(p){return p.e<=S.pp}).sort(function(a,b){return (b.m===want)-(a.m===want)||a.d-b.d}).slice(0,12);
+   if(!list.length)h+='<div class="err">No places found within this budget nearby. Go back and raise the budget or try another outing type.</div>';
+   list.forEach(function(p,i){var ds=dishes(p).filter(function(x){return x[1]<=S.pp}),q=encodeURIComponent(p.name+" "+p.lat+","+p.lon);
+    h+='<div class="venue"><h3>'+esc(p.name)+'</h3><div class="meta">'+p.d.toFixed(1)+' km away &middot; '+(p.e?'about INR '+p.e+' per person (estimate) &middot; INR '+p.e*S.n+' for your group':'Free')+(p.hours?' &middot; Hours: '+esc(p.hours):'')+'</div>'+
+    '<span class="tag">'+(p.m==="calm"?"Calm":"Lively")+'</span>'+((want&&p.m===want)?'<span class="tag">Fits your mood</span>':"")+
+    '<div class="acts" style="margin-top:14px"><button class="btn" onclick="tog('+i+')" aria-expanded="'+(S.open===i)+'">'+(S.open===i?"Hide food":"See food suggestions")+'</button><a class="btn ghost" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query='+q+'">Open in maps</a></div>';
+    if(S.open===i)h+='<div style="margin-top:14px">'+(ds.length?ds.map(function(x){return '<div class="dish"><span>'+x[0]+'</span><span>about INR '+x[1]+'</span></div>'}).join("")+'<p class="note">Typical dishes and prices for this kind of place. Check the real menu there.</p>':'<div class="dish">No typical dish fits this budget.</div>')+'</div>';
+    h+='</div>'});
+   h+='<p class="note">Places come from OpenStreetMap. Prices are estimates because OpenStreetMap does not list them.</p>'}}
+ if(S.err)h+='<div class="err" role="alert">'+S.err+'</div>';
+ h+='<div class="nav">'+(S.step>0?'<button class="btn ghost" onclick="go(-1)">Back</button>':"")+(S.step<4?'<button class="btn" onclick="go(1)">'+(S.step===3?"Show suggestions":"Next")+'</button>':'<button class="btn" onclick="restart()">Start over</button>')+'</div>';
+ app.innerHTML=h;
+ if(id){var n=document.getElementById(id);if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}}}}
+render();
+</script>
+</body>
+</html>
