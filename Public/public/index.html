@@ -96,18 +96,43 @@ function useGeo(){
  S.msg="Finding your location...";S.err="";render();
  navigator.geolocation.getCurrentPosition(function(p){S.loc={lat:p.coords.latitude,lon:p.coords.longitude,label:"your current location"};S.msg="";render()},
  function(){S.msg="";S.err="Location was blocked. Type your area below instead.";render()},{timeout:10000})}
+var MIRRORS=["https://overpass-api.de/api/interpreter","https://overpass.kumi.systems/api/interpreter"];
+var FILTERS={restaurant:['["amenity"~"restaurant|fast_food|food_court"]'],cafe:['["amenity"="cafe"]','["shop"="tea"]','["cuisine"~"tea|coffee_shop"]'],
+ adventure:['["leisure"~"park|garden|nature_reserve|sports_centre|water_park|miniature_golf"]','["tourism"~"attraction|viewpoint|zoo|theme_park"]','["natural"~"beach|peak"]']};
+// Calls the Node backend when present; on a static host (no /api, or HTML/404 back) returns null so callers use the direct fallback.
+async function api(url,opt){
+ try{var r=await fetch(url,opt);var ct=r.headers.get("content-type")||"";
+  if(ct.indexOf("application/json")<0)return null;
+  return {ok:r.ok,j:await r.json()}}
+ catch(e){return null}}
+async function geocodeDirect(q){
+ var r=await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&q="+encodeURIComponent(q));
+ var j=await r.json();if(!j.length)throw new Error("Area not found. Try a nearby city name.");
+ return {lat:parseFloat(j[0].lat),lon:parseFloat(j[0].lon),name:j[0].display_name}}
+async function placesDirect(lat,lon,type,radius){
+ var q="[out:json][timeout:20];("+FILTERS[type].map(function(f){return "nwr"+f+"(around:"+radius+","+lat+","+lon+");"}).join("")+");out center 80;";
+ for(var i=0;i<MIRRORS.length;i++){
+  try{var r=await fetch(MIRRORS[i],{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"data="+encodeURIComponent(q),signal:AbortSignal.timeout(25000)});
+   if(!r.ok)continue;var j=await r.json(),seen={},out=[];
+   (j.elements||[]).forEach(function(el){var t=el.tags||{},la=el.lat!=null?el.lat:el.center&&el.center.lat,lo=el.lon!=null?el.lon:el.center&&el.center.lon;
+    if(!t.name||la==null||lo==null||seen[t.name])return;seen[t.name]=1;
+    out.push({name:t.name,lat:la,lon:lo,kind:t.amenity||t.shop||t.leisure||t.tourism||t.natural||"place",cuisine:t.cuisine||"",hours:t.opening_hours||""})});
+   return out}catch(e){}}
+ throw new Error("The places service is busy. Try again in a minute.")}
 async function findArea(){
  var q=(S.area||"").trim();if(!q){S.err="Type an area or city first.";render();return}
  S.msg="Searching...";S.err="";render();
- try{var r=await fetch("/api/geocode?q="+encodeURIComponent(q));var j=await r.json();if(!r.ok)throw new Error(j.error);
+ try{var a=await api("/api/geocode?q="+encodeURIComponent(q));var j;
+  if(a){if(!a.ok)throw new Error(a.j.error);j=a.j}else j=await geocodeDirect(q);
   S.loc={lat:j.lat,lon:j.lon,label:j.name.split(",").slice(0,2).join(",")}}
- catch(e){S.err=e.message||"Could not find that area."}
+ catch(e){S.err=e instanceof TypeError?"Could not search for that area right now.":(e.message||"Could not find that area.")}
  S.msg="";render()}
 async function load(){
  S.loading=true;S.places=[];S.err="";render();
- try{var r=await fetch("/api/places?lat="+S.loc.lat+"&lon="+S.loc.lon+"&type="+S.type+"&radius=3000");var j=await r.json();
-  if(!r.ok)throw new Error(j.error||"Request failed");S.places=j.places}
- catch(e){S.err=e instanceof TypeError?"Cannot reach the server. Run node server.js and open http://localhost:3000.":(e.message||"Could not load places.")}
+ try{var a=await api("/api/places?lat="+S.loc.lat+"&lon="+S.loc.lon+"&type="+S.type+"&radius=3000");
+  if(a){if(!a.ok)throw new Error(a.j.error||"Request failed");S.places=a.j.places}
+  else S.places=await placesDirect(S.loc.lat,S.loc.lon,S.type,3000)}
+ catch(e){S.err=e instanceof TypeError?"Could not load places. Check your internet connection.":(e.message||"Could not load places.")}
  S.loading=false;render()}
 function renderLogin(){
  document.getElementById("dots").innerHTML="";var f=S.f;
@@ -126,10 +151,11 @@ async function login(){
  else if(!/^\d{10}$/.test(f.phone||""))e="Enter a valid 10-digit phone number.";
  if(e){S.err=e;render();return}
  S.msg="Signing in...";S.err="";render();
- try{var r=await fetch("/api/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(f)});var j=await r.json();
-  if(!r.ok)throw new Error(j.error||"Could not sign in.");
-  S.user=j.user;try{localStorage.setItem("vibeUser",JSON.stringify(j.user))}catch(x){}}
- catch(x){S.err=x instanceof TypeError?"Cannot reach the server. Run node server.js and open http://localhost:3000.":(x.message||"Could not sign in.")}
+ try{var a=await api("/api/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(f)});var u;
+  if(a){if(!a.ok)throw new Error(a.j.error||"Could not sign in.");u=a.j.user}
+  else u={name:f.name.trim(),gender:f.gender,email:f.email.trim().toLowerCase(),phone:f.phone}; // no backend: keep the profile in this browser only
+  S.user=u;try{localStorage.setItem("vibeUser",JSON.stringify(u))}catch(x){}}
+ catch(x){S.err=x.message||"Could not sign in."}
  S.msg="";render()}
 function logout(){try{localStorage.removeItem("vibeUser")}catch(x){}S.user=null;S.step=0;S.mood="";S.err="";document.documentElement.removeAttribute("data-mood");render()}
 function render(keep){
